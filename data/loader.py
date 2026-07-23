@@ -21,12 +21,18 @@ class ShadowDocumentDataset(Dataset):
     Directory structure:
         SD7K/
             train/
-                shadow/   # grayscale shadow maps (*.png)
                 input/    # shadowed RGB images (*.png)
                 target/   # shadow-free RGB images (*.png)
             test/
                 ...
+        RDD/
+            train/
+                input/    # shadowed RGB images
+                gt/       # shadow-free RGB images (clean target)
+            test/
+                ...
 
+    Shadow map is derived as grayscale(input) when no explicit shadow/ directory exists.
     The shadow encoder expects grayscale shadow map as the 'gray' input.
     """
     def __init__(self, root, split='train', patch_size=320, is_train=True):
@@ -34,50 +40,65 @@ class ShadowDocumentDataset(Dataset):
         self.patch_size = patch_size
         self.is_train = is_train
 
+        input_dir = os.path.join(self.root, 'input')
+        target_dir = os.path.join(self.root, 'target')
+        if not os.path.exists(target_dir):
+            for alt in ['gt', 'clean', 'label', 'norain']:
+                alt_dir = os.path.join(self.root, alt)
+                if os.path.exists(alt_dir):
+                    target_dir = alt_dir
+                    break
+
+        # Shadow map: use explicit directory if available, else derive from input
         shadow_dir = os.path.join(self.root, 'shadow')
+        self._derive_shadow = False
         if not os.path.exists(shadow_dir):
-            # Try alternative naming
             for alt in ['mask', 'shadow_map', 'shadow_mask']:
                 alt_dir = os.path.join(self.root, alt)
                 if os.path.exists(alt_dir):
                     shadow_dir = alt_dir
                     break
+        if not os.path.exists(shadow_dir):
+            self._derive_shadow = True
 
-        input_dir = os.path.join(self.root, 'input')
-        target_dir = os.path.join(self.root, 'target')
-
-        self.shadow_files = sorted(os.listdir(shadow_dir))
         self.input_files = sorted(os.listdir(input_dir))
         self.target_files = sorted(os.listdir(target_dir))
 
-        self.shadow_dir = shadow_dir
         self.input_dir = input_dir
         self.target_dir = target_dir
+        self.shadow_dir = shadow_dir if not self._derive_shadow else None
 
         if is_train:
-            random.shuffle(self.shadow_files)
+            random.shuffle(self.input_files)
 
     def __len__(self):
-        return len(self.shadow_files)
+        return len(self.input_files)
 
     def __getitem__(self, idx):
-        shadow = self._load_img(os.path.join(self.shadow_dir, self.shadow_files[idx]), grayscale=True)
-        inp = self._load_img(os.path.join(self.input_dir, self.input_files[idx % len(self.input_files)]))
-        target = self._load_img(os.path.join(self.target_dir, self.target_files[idx % len(self.target_files)]))
+        inp = self._load_rgb(os.path.join(self.input_dir, self.input_files[idx]))
+        target = self._load_rgb(os.path.join(self.target_dir, self.target_files[idx % len(self.target_files)]))
+
+        if self._derive_shadow:
+            shadow = 0.2989 * inp[0] + 0.5870 * inp[1] + 0.1140 * inp[2]
+            shadow = shadow.unsqueeze(0)
+        else:
+            shadow = self._load_gray(os.path.join(self.shadow_dir,
+                                                   os.listdir(self.shadow_dir)[idx % len(os.listdir(self.shadow_dir))]))
 
         if self.is_train:
             shadow, inp, target = self._random_crop(shadow, inp, target, self.patch_size)
 
         return shadow, inp, target
 
-    def _load_img(self, path, grayscale=False):
-        img = Image.open(path).convert('L' if grayscale else 'RGB')
+    def _load_rgb(self, path):
+        img = Image.open(path).convert('RGB')
         arr = np.array(img).astype(np.float32) / 255.0
-        if grayscale:
-            tensor = torch.from_numpy(arr).unsqueeze(0)
-        else:
-            tensor = torch.from_numpy(arr.transpose(2, 0, 1))
-        return tensor
+        return torch.from_numpy(arr.transpose(2, 0, 1))
+
+    def _load_gray(self, path):
+        img = Image.open(path).convert('L')
+        arr = np.array(img).astype(np.float32) / 255.0
+        return torch.from_numpy(arr).unsqueeze(0)
 
     def _random_crop(self, shadow, inp, target, size):
         _, h, w = inp.shape
@@ -170,9 +191,9 @@ class DerainingDataset(Dataset):
 # Dataset paths
 # ==============================================================================
 DATASET_ROOTS = {
-    'sd7k': '/mnt/dataset/SD7K',
-    'rdd': '/mnt/dataset/RDD',
-    'rain100l': '/mnt/dataset/Rain100L',
+    'sd7k': '/mnt/ShaDocFormer-main/dataset/SD7K',
+    'rdd': '/mnt/ShaDocFormer-main/dataset/RDD',
+    'rain100l': '/mnt/ShaDocFormer-main/dataset/Rain100L',
 }
 
 
