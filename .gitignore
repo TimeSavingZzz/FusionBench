@@ -1,0 +1,13 @@
+# FusionBench — Cross-Paradigm Fusion Strategy Comparison
+
+__pycache__/
+*.pyc
+*.pyo
+*.pth
+*.pkl
+checkpoints/
+logs/
+dataset/
+*.log
+.venv/
+__pycache__/
