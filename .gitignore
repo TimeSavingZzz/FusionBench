@@ -1,4 +1,4 @@
-# FusionBench — Cross-Paradigm Fusion Strategy Comparison
+# FusionBench
 
 __pycache__/
 *.pyc
@@ -8,6 +8,13 @@ __pycache__/
 checkpoints/
 logs/
 dataset/
+experiment_results*/
 *.log
 .venv/
-__pycache__/
+
+# Internal research notes (not part of the public code release)
+*.docx
+假设演进与实验结论.*
+研究历程与实验总览.*
+研究深度分析与决策链.*
+新发现分析_DomainFlipping.*
