@@ -2,11 +2,12 @@
 
 Code and experiment scripts for the paper:
 
-> **Does Feature Fusion Really Help? A Controlled Study on Document Shadow Removal**
+> **A Controlled Study of Feature Fusion in Transformer-Based Document Shadow Removal**
 
 This repository contains everything needed to reproduce the controlled comparison
-of five feature-fusion strategies for Transformer-based document shadow removal,
-together with the analysis scripts behind every figure and table in the paper.
+of four fusion mechanisms plus one capacity-scaling control for Transformer-based
+document shadow removal, together with the analysis scripts behind every figure
+and table in the paper.
 
 ---
 
@@ -19,8 +20,9 @@ Many fusion designs have been proposed, but they are almost always evaluated on
 different backbones, protocols, and datasets, so it is impossible to tell how much
 of the reported gain comes from the fusion design itself.
 
-This repository fixes everything except the fusion module and asks a single
-question: **under what conditions does an explicit fusion module actually help?**
+This repository fixes the backbone, training protocol, and loss, varies only the
+fusion operation, and asks a single question: **how large is the difference that
+this one factor actually makes?**
 
 ---
 
@@ -28,12 +30,13 @@ question: **under what conditions does an explicit fusion module actually help?*
 
 | # | Finding | Evidence |
 |---|---------|----------|
-| 1 | **The ranking of fusion strategies depends on the data domain.** FiLM leads on synthetic SD7K (24.77 dB), while on real-world RDD all strategies collapse into a narrow band and plain concatenation leads (37.20 dB). | Table 1; `run_scaling_curve.py`, `gen_scaling_fig.py` |
-| 2 | **The backbone's self-attention already aligns the two feature streams.** Cross-attention improves over concatenation by only +0.02 dB. | Fig. 3; `visualize_attention.py`, `run_attn_viz.py` |
-| 3 | **On real data, fusion can hurt text preservation.** The model with *no* fusion achieves the best TextPSNR (34.77 dB), higher than every fusion variant. | Table 1; `eval_ocr.py` |
+| 1 | **The spread between mechanisms is small and dataset-dependent.** Within the resolution-matched group the mechanisms span 1.03 dB on SD7K and 0.19 dB on RDD, against a shift of roughly 4 dB from changing the evaluation domain. | Table 1; `run_scaling_curve.py` |
+| 2 | **Cross-attention does not repay its cost.** It reaches 23.76 dB on SD7K and 36.99 dB on RDD, close to the simpler mechanisms, while requiring about four times the memory. | `eval_efficiency.py` |
+| 3 | **The fusion variants do not improve text-region preservation.** On RDD the model with no auxiliary pathway attains the highest text-region PSNR (34.77 dB), above every resolution-matched fusion variant. | Table 1; `eval_ocr.py` |
 
-Data volume modulates the *size* of the gap between strategies but never changes
-their *order* (`run_scaling_curve.py`).
+Across the training-set sizes we tested, the gap between mechanisms changes size
+but their ordering does not (`run_scaling_curve.py`). Note that the 200-pair
+condition also uses a longer schedule, so the two cannot be fully separated.
 
 ---
 
